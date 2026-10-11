@@ -1,0 +1,18 @@
+target/
+*.class
+
+.idea/
+*.iml
+.vscode/
+
+logs/
+*.log
+
+.DS_Store
+Thumbs.db
+
+# WorkBuddy AI 项目数据（工作记忆等），不纳入版本管理
+.workbuddy-ai/
+
+# 面试备考资料（本地保留，不入公开仓库）
+.private/

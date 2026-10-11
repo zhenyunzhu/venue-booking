@@ -1,0 +1,43 @@
+# 一键起完整环境：MySQL(自动建表+演示数据) + Redis + 应用
+# 用法：docker compose up -d，应用在 http://localhost:8080
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_DATABASE: venue_booking
+    ports:
+      - "3306:3306"
+    volumes:
+      # 首次启动自动执行建表与演示数据脚本
+      - ./sql/01_ddl.sql:/docker-entrypoint-initdb.d/01_ddl.sql:ro
+      - ./sql/02_init_data.sql:/docker-entrypoint-initdb.d/02_init_data.sql:ro
+      - ./sql/03_m9_upgrade.sql:/docker-entrypoint-initdb.d/03_m9_upgrade.sql:ro
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p123456" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      # 容器网络里用服务名互访（对照 application.yml 的环境变量占位）
+      MYSQL_URL: jdbc:mysql://mysql:3306/venue_booking?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      REDIS_HOST: redis
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+volumes:
+  mysql-data:

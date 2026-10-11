@@ -1,0 +1,75 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: venue-booking
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # 敏感配置一律走环境变量占位（冒号后为本地开发默认值）。
+    # 生产环境必须通过环境变量/配置中心注入，绝不能把真实密码提交进 Git
+    url: ${MYSQL_URL:jdbc:mysql://127.0.0.1:3306/venue_booking?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:123456}
+    hikari:
+      minimum-idle: 5           # 空闲时最少连接数
+      maximum-pool-size: 20     # 最大连接数：连接不是越多越好，一般 = 核数*2 + 磁盘数 起步
+      connection-timeout: 3000  # 拿连接 3 秒拿不到就报错，快速失败好过长时间挂起
+
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      database: 0
+      timeout: 3s               # 命令超时：Redis 正常操作是亚毫秒级，3 秒还没回一定有问题
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true      # created_time -> createTime 自动映射
+    # 开发期打印 SQL 方便教学/排错；上线前关闭（M8 会替换成 p6spi 慢SQL统计）
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    banner: false
+    db-config:
+      logic-delete-field: deleted           # 全局逻辑删除字段：查询自动拼 deleted=0
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+      id-type: auto                         # 主键跟随数据库自增；订单号等业务 ID 另行生成
+
+logging:
+  # 日志带 traceId：一次请求的所有日志都能串起来（由 TraceIdFilter 写入 MDC）
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId}] %logger{36} - %msg%n"
+  level:
+    com.venuebooking: info
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  metrics:
+    tags:
+      application: venue-booking
+
+# ===================== 项目自定义配置 =====================
+venue:
+  auth:
+    # JWT 签名密钥：HS 算法要求 >= 32 字节（256 位）。
+    # 生产环境应放环境变量/配置中心，绝不进 Git —— 冒号后为本地开发默认值
+    jwt-secret: ${JWT_SECRET:venue-booking-demo-jwt-secret-please-change-me-0123456789-abcdefghijklmnopqrstuvwxyz}
+    token-expire-hours: 24   # token 有效期（小时）
+  booking:
+    pay-expire-minutes: 15   # 下单后支付截止（分钟），超时自动关单（M5 实现）
+    token-ttl-minutes: 5     # 一次性下单凭证有效期
+  snowflake:
+    worker-id: 1             # 雪花算法机器号（0~31），多实例部署时必须各不相同
+  payment:
+    notify-secret: ${PAY_NOTIFY_SECRET:demo-pay-notify-secret-change-in-prod}   # 支付回调验签密钥（模拟环境）
+
